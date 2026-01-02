@@ -1,0 +1,179 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Hospital;
+use App\Models\Patient;
+use App\Models\User;
+use App\Models\ApplicationReview;
+use App\Models\StatusList;
+use App\Models\PersonalHistory;
+use App\Models\FamilyHistory;
+use App\Models\PatientBiodata;
+use App\Models\SocialCondition;
+
+class PatientBiodataController extends Controller
+{
+    public function retrievePatient($phoneNumber)
+    {
+        $user = User::where('phoneNumber', $phoneNumber)->first();
+        $patient = Patient::with('hospital', 'stateOfOrigin')->where('userId', $user->id)->first();
+        return response()->json($patient);
+
+    }
+
+    public function currentStatus($phoneNumber)
+    {
+        $user = User::where('phoneNumber', $phoneNumber)->first();
+        $current_status = ApplicationReview::where('patientUserId', $user->id)
+        ->with('status_details', 'user.patient')
+        ->orderBy('created_at', 'desc')
+        // ->pluck('statusId')
+        ->first();
+
+        return response()->json($current_status);
+
+    }
+
+   public function generateCustomID() {
+        // Generate 9 random digits
+        $numbers = substr(str_shuffle("0123456789"), 0, 9);
+
+        // Generate 1 random uppercase letter
+        $letter = chr(rand(65, 90)); // ASCII values for A-Z
+
+        // Combine them
+        return $numbers . $letter;
+    }
+
+    // Example usage
+    // $uniqueID = generateCustomID();
+    // echo $uniqueID;
+
+    public function store(Request $request)
+    {
+        // Validate request data
+        $data = $request->all();
+
+        // Retrieve hospital data
+        $hospital = Hospital::where('hospitalId', (int) $data['hospital'])->firstOrFail(); // Safe fetch
+        $uniqueID = $this->generateCustomID();
+
+        // $statusId = StatusList::orderBy('statusId')->skip(1)->value('statusId');
+
+        // Prepare additional fields
+        // $data['userId'] = Auth::id();
+        // $data['chfId'] = "NCCF-{$hospital->hospitalShortName}-$uniqueID";
+        // $data['status'] = 2;
+
+        $patientData = [
+    'userId' => Auth::id(),
+    'NIN' => $data['nin'],
+    'hospitalFileNumber' => $data['hospitalFileNumber'],
+    'hospital' => (int) $data['hospital'],
+    'stateOfOrigin' => (int) $data['stateOfOrigin'],
+    'stateOfResidence' => (int) $data['stateOfResidence'],
+    'gender' => $data['gender'],
+    'bloodGroup' => $data['bloodGroup'],
+    'occupation' => $data['occupation'],
+    'dateOfBirth' => $data['dateOfBirth'],
+    'address' => $data['address'],
+    'nextOfKinName' => $data['nextOfKinName'],
+    'nextOfKinAddress' => $data['nextOfKinAddress'],
+    'nextOfKinPhoneNumber' => $data['nextOfKinPhoneNumber'],
+    'nextOfKinEmail' => $data['nextOfKinEmail'],
+    'nextOfKinRelationship' => $data['nextOfKinRelationship'],
+    'nextOfKinOccupation' => $data['nextOfKinOccupation'],
+    'nextOfKinGender' => $data['nextOfKinGender'],
+    'hmo' => $data['hmo'] ?? null,
+    'cancer' => $data['cancer'] ?? null,
+    'status' => 2,
+    'chfId' => "NCCF-{$hospital->hospitalShortName}-$uniqueID",
+];
+
+        // Use `firstOrCreate` to prevent duplicate records
+       $patient = PatientBiodata::firstOrCreate(
+    ['userId' => Auth::id()],
+    $patientData
+);
+
+
+
+         // Create Patient History
+    $patientHistoryData = [
+        'patientUserId'         => Auth::id(),
+        'averageMonthlyIncome' => $data['averageMonthlyIncome'] ?? null,
+        'averageFeedingDaily'   => $data['averageFeedingDaily'] ?? null,
+        'whoProvidesFeeding'    => $data['whoProvidesFeeding'] ?? null,
+        'accomodation'          => $data['accomodation'] ?? null,
+        'typeOfAccomodation'    => $data['typeOfAccomodation'] ?? null,
+        'noOfGoodSetOfClothes'  => $data['noOfGoodSetOfClothes'] ?? null,
+        'howAreClothesGotten'   => $data['howAreClothesGotten'] ?? null,
+        'whyDidYouChooseHospital' => $data['whyDidYouChooseHospital'] ?? null,
+        'hospitalReceivingCare2' => $data['hospitalReceivingCare2'] ?? null,
+        'levelOfSpousalSpupport' => $data['levelOfSpousalSpupport'] ?? null,
+        'otherSupport'          => $data['otherSupport'] ?? null,
+
+    ];
+
+    $patientHistory = PersonalHistory::firstOrCreate(['patientUserId' => Auth::id()], // Check condition (unique constraint)
+    $patientHistoryData);
+
+ // Store Family History
+    $familyData = [
+    'patientUserId'           => Auth::id(),
+    'familySetupSize'         => $data['familySetupSize'] ?? null,
+    'birthOrder'              => $data['birthOrder'] ?? null,
+    'fathersEducationalLevel' => $data['fathersEducationalLevel'] ?? null,
+    'mothersEducationalLevel' => $data['mothersEducationalLevel'] ?? null,
+    'fathersOccupation'       => $data['fathersOccupation'] ?? null,
+    'mothersOccupation'       => $data['mothersOccupation'] ?? null,
+    'levelOfFamilyCare'       => $data['levelOfFamilyCare'] ?? null,
+    'familyMonthlyIncome'     => $data['familyMonthlyIncome'] ?? null,
+];
+
+$familyHistory = FamilyHistory::firstOrCreate(
+    ['patientUserId' => Auth::id()],  // Prevent duplicate records
+    $familyData
+);
+
+
+
+    // Store Living Conditions
+    $livingConditionData = [
+        'patientUserId'     => Auth::id(),
+        'runningWater'      => $data['runningWater'] ?? null,
+        'toiletType'        => $data['toiletType'] ?? null,
+        'powerSupply'       => $data['powerSupply'] ?? null,
+        'meansOfTransport'  => $data['meansOfTransport'] ?? null,
+        'mobilePhone'       => $data['mobilePhone'] ?? null,
+        'howPhoneIsRecharged' => $data['howPhoneIsRecharged'] ?? null,
+    ];
+
+    $livingCondition = SocialCondition::firstOrCreate(
+        ['patientUserId' => Auth::id()],  // Prevent duplicate records
+        $livingConditionData
+    );
+        $status_data['patientUserId'] = Auth::id();
+        $status_data['reviewerId'] = Auth::id();
+        $status_data['reviewerRole'] = 1;
+        $status_data['statusId'] = 2;
+
+        $application_status = ApplicationReview::create(
+            // ['patientUserId' => Auth::id()],
+        $status_data
+    );
+
+
+        // Check if the record already exists
+        if (!$patient->wasRecentlyCreated) {
+            return response()->json(['error' => 'You have already started an application'], 409);
+        }
+
+        return response()->json($patient, 201); // 201: Created
+    }
+
+
+}
