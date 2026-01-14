@@ -15,7 +15,7 @@ use App\Http\Controllers\ManufacturerController;
 use App\Http\Controllers\DistributorController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\DoctorAssessmentController;
-use App\Http\Controllers\StockController;
+use App\Http\Controllers\HospitalStockController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\TransactionsController;
 use App\Http\Controllers\PatientController;
@@ -30,6 +30,8 @@ use App\Models\HMOs;
 use App\Models\Languages;
 use App\Models\ProductType;
 use App\Models\State;
+use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\RequisitionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -84,10 +86,10 @@ Route::middleware(['auth.jwt'])->group(function () {
     | ADMIN ONLY
     |--------------------------------------------------------------------------
     */
-    Route::middleware('role:Admin')->group(function () {
+    
+    Route::middleware('role:SUPER_ADMIN,ADMIN')->group(function () {
         Route::apiResource('roles', RolesController::class)->only(['index', 'store']);
         Route::apiResource('users', UsersController::class)->only(['index', 'store']);
-        Route::apiResource('states', StateController::class)->only(['index', 'store']);
     });
 
     Route::middleware('role:DOCTOR')->group(function () {
@@ -104,8 +106,8 @@ Route::middleware(['auth.jwt'])->group(function () {
     */
     Route::middleware('role:HOSPITAL_ADMIN')->group(function () {
         Route::get('/patients', [PatientsController::class, 'retrieveAll']);
-        Route::get('/hospital/patients', [PatientsController::class, 'hospitalPatients']);
         Route::get('/patient/billings', [BillingController::class, 'patientBillings']);
+        Route::get('/hospital/patients', [PatientsController::class, 'hospitalPatients']);
         Route::get('/hospital/doctors', [PatientsController::class, 'hospitalDoctors']);
         Route::post('/patient/doctor/assign', [PatientsController::class, 'assignDoctor']);
         Route::get('/hospital/ewallet/balance', [HospitalController::class, 'hospitalEwalletBalance']);
@@ -122,14 +124,55 @@ Route::middleware(['auth.jwt'])->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::middleware('role:SUPER_ADMIN,PHARMACIST')->group(function () {
-        Route::get('/stock', [StockController::class, 'index']);
-        Route::post('/stock', [StockController::class, 'store']);
+        Route::get('/stock', [HospitalStockController::class, 'index']);
+        Route::post('/stock', [HospitalStockController::class, 'store']);
 
         Route::get('/products', [ProductController::class, 'index']);
         Route::post('/products', [ProductController::class, 'store']);
+        Route::get('/products/priced', [ProductController::class, 'pricedProducts']); // new
+
+        Route::post('/transactions', [TransactionsController::class, 'store']); // new
+
 
         Route::get('/product-pricelist', [ProductController::class, 'productPriceList']);
         Route::post('/product-pricelist', [ProductController::class, 'storeProductPriceList']);
+
+        Route::get('/warehouses', [WarehouseController::class, 'index']);
+        Route::post('/warehouses', [WarehouseController::class, 'store']);
+
+        
+        Route::get('/warehouse-stock/batches', [WarehouseController::class, 'getWarehouseStock']);
+        Route::get('/warehouse-stock-list/{warehouseId}', [WarehouseController::class, 'summary']);
+        Route::get('/hospital-stocks', [HospitalStockController::class, 'hospitalStocks']);
+       
+        Route::get('/hospital/patients', [PatientsController::class, 'hospitalPatients']);
+        Route::get('/hospital/doctors', [PatientsController::class, 'hospitalDoctors']);
+
+        Route::get('/all-warehouse-stocks', [WarehouseController::class, 'allStocksInWarehouses']);
+        Route::post('/requisitions', [RequisitionController::class, 'stockRequest']);
+        Route::get('/requisitions/hospital', [RequisitionController::class, 'hospitalIndex']); // for tracking
+        Route::post('/requisitions/bulk', [RequisitionController::class, 'bulkStockRequest']);
+        Route::get('/requisitions/{requisitionId}/items', [RequisitionController::class, 'requisitionItems']);
+        Route::post('/warehouse-stock', [WarehouseController::class, 'addWarehouseStock']);
+
+
+        Route::patch('/requisitions/items/{itemId}/cancel', [RequisitionController::class, 'cancel']);
+        Route::get('/requisitions/pending-dispatch', [RequisitionController::class, 'hospitalIndex']);
+        Route::patch('/requisitions/{requisitionId}/dispatch', [RequisitionController::class, 'dispatch']);
+        Route::patch('/requisitions/{requisitionId}/receive', [RequisitionController::class, 'receive']);
+
+        Route::get('patients/ncap', [PatientsController::class, 'ncapEnrolledPatients']);
+        Route::post('patients/ncap', [PatientsController::class, 'ncapPatientEnrolment']);
+        Route::get('patient/search', [TransactionsController::class, 'searchPatient']);
+        
+        Route::get('/hospital/escrow-account', [TransactionsController::class, 'getEscrowAccounts']);
+
+        Route::get('transactions', [TransactionsController::class, 'index']);
+        Route::patch('transactions/{transactionId}/confirm', [TransactionsController::class, 'updateStatus']);
+
+        
+
+        Route::get('/distributors/{distributorId}/manufacturers', [DistributorController::class, 'index']);
     });
 
     /*
@@ -142,7 +185,12 @@ Route::middleware(['auth.jwt'])->group(function () {
         Route::get('/patients/biodata/{phoneNumber}', [PatientBiodataController::class, 'retrievePatient']);
         Route::get('patient/{phoneNumber}/status', [PatientBiodataController::class, 'currentStatus']);
 
-        Route::get('/cancers', function () {
+        Route::get('/supplier/staff', function () {
+            $cancers = User::where('role', 12)->orderBy('cancerName')->get();
+            return response()->json($cancers);
+        });
+
+         Route::get('/cancers', function () {
             $cancers = Cancer::orderBy('cancerName')->get();
             return response()->json($cancers);
         });
@@ -193,13 +241,19 @@ Route::middleware(['auth.jwt'])->group(function () {
 
         Route::get('/suppliers', [DistributorController::class, 'index']);
         Route::post('/suppliers', [DistributorController::class, 'store']);
-
-
+        
         Route::get('/partners', [PartnersController::class, 'index']);
         Route::post('/partners', [PartnersController::class, 'store']);
-
+        
         Route::get('/manufacturers', [ManufacturerController::class, 'index']);
+        Route::get('/manufacturers/{manufacturerId}', [ManufacturerController::class, 'show']);
         Route::post('/manufacturers', [ManufacturerController::class, 'store']);
+        Route::put('/manufacturers/{manufacturerId}', [ManufacturerController::class, 'update']);
+        Route::delete('/manufacturers/{manufacturerId}', [ManufacturerController::class, 'destroy']);
+        Route::get('/manufacturers/{manufacturerId}/staff', [ManufacturerController::class, 'manufacturerStaff']);
+        Route::post('/manufacturers/{manufacturerId}/staff', [ManufacturerController::class, 'addManufacturerStaff']);
+        Route::get('/manufacturers/{manufacturerId}/suppliers', [ManufacturerController::class, 'manufacturerDistributor']);
+        Route::post('/manufacturers/{manufacturerId}/suppliers', [ManufacturerController::class, 'addManufacturerDistributor']);
 
         Route::get('/hospitals', [HospitalController::class, 'index']);
         Route::post('/hospitals', [HospitalController::class, 'store']);
@@ -226,3 +280,5 @@ Route::get('/languages', function () {
     $languages = Languages::orderBy('languageId')->get()->makeHidden(['created_at', 'updated_at', 'deleted_at']);
     return response()->json($languages);
 });
+
+Route::post('/states', [StateController::class, 'store']);

@@ -61,18 +61,19 @@ class PatientBiodataController extends Controller
         $hospital = Hospital::where('hospitalId', (int) $data['hospital'])->firstOrFail(); // Safe fetch
         $uniqueID = $this->generateCustomID();
 
-        // $statusId = StatusList::orderBy('statusId')->skip(1)->value('statusId');
+        $statusId = StatusList::orderBy('statusId')->skip(1)->value('statusId');
 
-        // Prepare additional fields
-        // $data['userId'] = Auth::id();
-        // $data['chfId'] = "NCCF-{$hospital->hospitalShortName}-$uniqueID";
-        // $data['status'] = 2;
 
+         $user = auth()->user();
+        
         $patientData = [
+    'firstName' => $user->firstName,
+    'lastName' => $user->lastName,
+    'otherNames' => $user->otherNames ?? null,
     'userId' => Auth::id(),
     'NIN' => $data['nin'],
     'hospitalFileNumber' => $data['hospitalFileNumber'],
-    'hospital' => (int) $data['hospital'],
+    'hospitalId' => (int) $data['hospital'],
     'stateOfOrigin' => (int) $data['stateOfOrigin'],
     'stateOfResidence' => (int) $data['stateOfResidence'],
     'gender' => $data['gender'],
@@ -80,6 +81,7 @@ class PatientBiodataController extends Controller
     'occupation' => $data['occupation'],
     'dateOfBirth' => $data['dateOfBirth'],
     'address' => $data['address'],
+    'religion' => $data['religion'],
     'nextOfKinName' => $data['nextOfKinName'],
     'nextOfKinAddress' => $data['nextOfKinAddress'],
     'nextOfKinPhoneNumber' => $data['nextOfKinPhoneNumber'],
@@ -87,10 +89,13 @@ class PatientBiodataController extends Controller
     'nextOfKinRelationship' => $data['nextOfKinRelationship'],
     'nextOfKinOccupation' => $data['nextOfKinOccupation'],
     'nextOfKinGender' => $data['nextOfKinGender'],
-    'hmo' => $data['hmo'] ?? null,
-    'cancer' => $data['cancer'] ?? null,
+    'hmoId' => $data['hmo'] ?? null,
+    'diseaseType' => $data['cancer'] ?? null,
     'status' => 2,
-    'chfId' => "NCCF-{$hospital->hospitalShortName}-$uniqueID",
+    'chfId' => "NCCHF-{$hospital->acronym}-$uniqueID",
+    'patientId' => "NCAP-{$hospital->acronym}-$uniqueID",
+    'email' => $user->email,
+    'patientType' => 'NCCHF',
 ];
 
         // Use `firstOrCreate` to prevent duplicate records
@@ -112,7 +117,7 @@ class PatientBiodataController extends Controller
         'noOfGoodSetOfClothes'  => $data['noOfGoodSetOfClothes'] ?? null,
         'howAreClothesGotten'   => $data['howAreClothesGotten'] ?? null,
         'whyDidYouChooseHospital' => $data['whyDidYouChooseHospital'] ?? null,
-        'hospitalReceivingCare2' => $data['hospitalReceivingCare2'] ?? null,
+        'hospitalReceivingCare' => $data['hospitalReceivingCare2'] ?? null,
         'levelOfSpousalSpupport' => $data['levelOfSpousalSpupport'] ?? null,
         'otherSupport'          => $data['otherSupport'] ?? null,
 

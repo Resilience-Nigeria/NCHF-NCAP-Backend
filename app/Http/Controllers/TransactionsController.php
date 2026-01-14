@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Transactions;
+use App\Models\TransactionItems;
 use App\Models\Beneficiary;
 use App\Models\TransactionProducts;
 use App\Models\PendingTransactions;
@@ -16,13 +17,16 @@ use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
-
+use App\Models\Patient;
+use App\Models\HospitalEscrowAccount;
+use App\Models\HospitalStock;
+use Illuminate\Validation\Rule;
 
 class TransactionsController extends Controller
 {
     public function index()
     {
-        $transactions = Transactions::with('transaction_products.products', 'beneficiary_info', 'seller')
+        $transactions = Transactions::with('patient_details', 'createdBy', 'approvedBy', 'hospital', 'transaction_items.products')
         ->orderBy('created_at', 'desc')
         ->get();
         return response()->json($transactions);
@@ -36,7 +40,25 @@ class TransactionsController extends Controller
         return response()->json($transaction);
     }
 
+    public function searchPatient(Request $request){
+        $search = $request->query('search');
+        $patient = Patient::where('firstName', 'LIKE', "%{$search}%")
+        ->orWhere('lastName', 'LIKE', "%{$search}%")
+        ->orWhere('patientId', 'LIKE', "%{$search}%")
+        ->orWhere('phoneNumber', 'LIKE', "%{$search}%")
+        ->orWhere('hospitalFileNumber', 'LIKE', "%{$search}%")
+        ->get();
+        return response()->json($patient);
+    }
     
+
+    public function getEscrowAccounts()
+    {
+        $user = auth()->user();
+        $hospitalId = $user->staff->hospitalId;
+        $escrowAccounts = HospitalEscrowAccount::where('hospitalId', $hospitalId)->get();
+        return response()->json($escrowAccounts);
+    }
     
 public function initiate(Request $request): JsonResponse
 {
@@ -245,219 +267,6 @@ public function initiate(Request $request): JsonResponse
     }
 }
 
-
- public function storeLoanTransactions(Request $request)
-    {
-        // Validating the incoming request data
-        $validator = Validator::make($request->all(), [
-            'beneficiaryId' => 'required|exists:beneficiaries,beneficiaryId',
-            'paymentMethod' => 'required|in:loan',
-            'products' => 'required|array|min:1',
-            'products.*.productId' => 'required|exists:products,productId',
-            'products.*.quantity' => 'required|integer|min:1',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        // Start a database transaction
-        return DB::transaction(function () use ($request) {
-            // $users_info = 
-            $beneficiary = Beneficiary::where('beneficiaryId', $request->beneficiaryId)->first();
-            $totalCost = 0;
-
-            // Calculate total cost
-            foreach ($request->products as $productData) {
-                $product = Products::where('productId', $productData['productId'])->first();
-                if (!$product) {
-                    throw new \Exception("Product with ID {$productData['productId']} not found");
-                }
-                $totalCost += $product->cost * $productData['quantity'];
-            }
-
-            // Verify loan limit
-            $salary = 70000;
-            // $salary = floatval($beneficiary->cadre_info->salary);
-        //    return $salary = ($beneficiary->cadre_info->salary);
-            $loanLimit = $beneficiary->beneficiaryType === 'State Civil Servant' 
-                ? round($salary * 0.3333) 
-                : floatval($beneficiary->billingSetting);
-
-            // if ($totalCost > $loanLimit) {
-            //     return response()->json([
-            //         'message' => "Transaction exceeds loan limit of ₦{$loanLimit}",
-            //     ], 422);
-            // }
-
-            // Create loan transaction
-            $transaction = Transactions::create([
-                'transactionId' => Str::random(),
-                'beneficiary' => $beneficiary->id,
-                'soldBy' => Auth::id(),
-                'paymentMethod' => $request->paymentMethod,
-                'status' => 'pending',
-                'totalCost' => $totalCost,
-            ]);
-
-            // Create transaction products
-            foreach ($request->products as $productData) {
-                $product = Products::where('productId', $productData['productId'])->first();
-                TransactionProducts::create([
-                    'transactionId' => $transaction->transactionId,
-                    'productId' => $productData['productId'],
-                    'quantitySold' => $productData['quantity'],
-                    'cost' => $product->cost,
-                ]);
-            }
-
-            // Prepare response data
-            $transaction->load('transaction_products.products', 'beneficiary_info', 'seller');
-
-            return response()->json([
-                'message' => 'Loan transaction created successfully',
-                'data' => $transaction,
-            ], 201);
-        }, 5);
-    }
-
-    public function confirm(Request $request, string $transactionId): JsonResponse
-    {
-        try {
-            // Find pending transaction
-            $pendingTransaction = PendingTransactions::where('transactionId', $transactionId)->first();
-            if (!$pendingTransaction) {
-                return response()->json([
-                    'message' => 'Pending transaction not found'
-                ], 404);
-            }
-
-            // If already processed, return existing transaction
-            $existingTransaction = Transactions::where('transactionId', $transactionId)->first();
-            if ($existingTransaction) {
-                return response()->json($existingTransaction, 200);
-            }
-
-            // For outright, ensure payment was completed
-            if ($pendingTransaction->paymentMethod === 'outright' && $pendingTransaction->status !== 'completed') {
-                return response()->json([
-                    'message' => 'Payment not confirmed',
-                    'status' => 'failed'
-                ], 400);
-            }
-
-            // Begin a database transaction
-            return DB::transaction(function () use ($pendingTransaction, $transactionId) {
-                // Get authenticated user
-                $user = auth()->user();
-                if (!$user || !$user->staff) {
-                    throw new \Exception('Authenticated user or staff data not found');
-                }
-
-                // Create the transaction
-                $transaction = Transactions::create([
-                    'transactionId' => $transactionId,
-                    'beneficiary' => $pendingTransaction->beneficiaryId,
-                    'paymentMethod' => $pendingTransaction->paymentMethod,
-                    'lga' => $user->staff->lga,
-                    'soldBy' => $user->id,
-                    'status' => $pendingTransaction->status,
-                    'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now(),
-                ]);
-
-                // Process products
-                $products = json_decode($pendingTransaction->products, true);
-                $transactionProducts = [];
-
-                foreach ($products as $product) {
-                    $productId = $product['productId'];
-                    $quantity = $product['quantity'];
-
-                    // Fetch product details
-                    $productModel = Products::findOrFail($productId);
-
-                    // Check stock availability
-                    $stock = Stock::where('productId', $productId)->firstOrFail();
-                    $availableStock = $stock->quantityReceived - ($stock->quantitySold ?? 0);
-
-                    if ($quantity > $availableStock) {
-                        throw new \Exception("Insufficient stock for product ID {$productId}. Available: {$availableStock}, Requested: {$quantity}");
-                    }
-
-                    // Create transaction product entry
-                    $transactionProducts[] = [
-                        'transactionId' => $transactionId,
-                        'productId' => $productId,
-                        'quantitySold' => $quantity,
-                        'cost' => $productModel->cost,
-                        'created_at' => Carbon::now(),
-                        'updated_at' => Carbon::now(),
-                    ];
-
-                    // Update stock
-                    $stock->increment('quantitySold', $quantity);
-                }
-
-                // Insert transaction products
-                TransactionProducts::insert($transactionProducts);
-
-                // Delete pending transaction
-                $pendingTransaction->delete();
-
-                // Fetch the transaction with related data
-                $transaction = Transactions::with(['beneficiary', 'transaction_products.products'])
-                    ->where('transactionId', $transactionId)
-                    ->firstOrFail();
-
-                // Format response
-                $response = [
-                    'id' => $transaction->id,
-                    'beneficiary' => $transaction->beneficiary,
-                    'transactionId' => $transaction->transactionId,
-                    'lga' => $transaction->lga,
-                    'soldBy' => $transaction->soldBy,
-                    'paymentMethod' => $transaction->paymentMethod,
-                    'status' => $transaction->status,
-                    'created_at' => $transaction->created_at->toIso8601String(),
-                    'updated_at' => $transaction->updated_at->toIso8601String(),
-                    'transaction_products' => $transaction->transaction_products->map(function ($transactionProduct) {
-                        return [
-                            'id' => $transactionProduct->id,
-                            'transactionId' => $transactionProduct->transactionId,
-                            'productId' => $transactionProduct->productId,
-                            'quantitySold' => (string) $transactionProduct->quantitySold,
-                            'cost' => (string) $transactionProduct->cost,
-                            'created_at' => $transactionProduct->created_at ? $transactionProduct->created_at->toIso8601String() : null,
-                            'updated_at' => $transactionProduct->updated_at ? $transactionProduct->updated_at->toIso8601String() : null,
-                            'products' => [
-                                'productId' => $transactionProduct->products->productId,
-                                'productName' => $transactionProduct->products->productName ?? 'Unknown Product',
-                                'productType' => $transactionProduct->products->productType,
-                                'cost' => (string) $transactionProduct->products->cost,
-                                'addedBy' => $transactionProduct->products->addedBy,
-                                'status' => $transactionProduct->products->status,
-                                'created_at' => $transactionProduct->products->created_at->toIso8601String(),
-                                'updated_at' => $transactionProduct->products->updated_at->toIso8601String(),
-                            ]
-                        ];
-                    })->toArray(),
-                ];
-
-                return response()->json($response, 200);
-            });
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to confirm transaction',
-                'error' => $e->getMessage(),
-                'status' => 'failed'
-            ], 500);
-        }
-    }
     
     public function update(Request $request, $transactionId)
     {
@@ -485,6 +294,148 @@ public function initiate(Request $request): JsonResponse
 
         $transaction->delete();
         return response()->json(['message' => 'Transaction deleted successfully']);
+    }
+    
+
+
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'patientId'      => 'required|exists:patients,patientId',
+            'paymentMethod'  => 'required|in:cash,transfer',
+            'items'           => 'required|array|min:1',
+            'items.*.productId'   => 'required|exists:hospital_stocks,productId',
+            'items.*.batchNumber' => 'required|string|max:50',
+            'items.*.quantity'     => 'required|integer|min:1',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Verify patient exists and is active (optional business rule)
+            $patient = Patient::where('patientId', $validated['patientId'])->first();
+            // You might want to check if patient has any restrictions, etc.
+
+            // 2. Create main transaction record
+            $transaction = Transactions::create([
+                'patientId'     => $patient->patientId,
+                'hospitalId'    => auth()->user()->staff->hospitalId, // assuming authenticated hospital staff
+                'createdBy'        => auth()->id(),                // who made the sale
+                'totalAmount'   => 0,                           // will be calculated
+                'paymentMethod' => $validated['paymentMethod'],
+                'status'         => 'PENDING',                 // or 'pending' if you want approval flow
+                'transactionNumber' => 'TRX-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6)),
+                'created_at'     => now(),
+                'transactionType'  => 'NCAP',
+            ]);
+
+            $totalAmount = 0;
+
+            // 3. Process each item + update stock
+            foreach ($validated['items'] as $itemData) {
+                // Find exact stock batch
+                $stock = HospitalStock::where([
+                    'productId'   => $itemData['productId'],
+                    'batchNumber' => $itemData['batchNumber'],
+                ])
+                ->where('quantityReceived', '>=', $itemData['quantity']) // or your stock column name
+                ->where('hospitalId', auth()->user()->staff->hospitalId)
+                ->first();
+
+                if (!$stock) {
+                    throw ValidationException::withMessages([
+                        'items' => "Product ID {$itemData['productId']} - Batch {$itemData['batch_number']} not found or insufficient quantity."
+                    ]);
+                }
+
+                $subtotal = $stock->priceToPatient * $itemData['quantity'];
+
+                // Create transaction item
+                TransactionItems::create([
+                    'transactionId' => $transaction->transactionId,
+                    'productId'     => $itemData['productId'],
+                    'batchNumber'   => $itemData['batchNumber'],
+                    'quantity'       => $itemData['quantity'],
+                    'landedCost'     => $stock->landedCost,
+                    'resilienceMarkup'     => $stock->resilienceMarkup,
+                    'distributorMarkup'     => $stock->distributorMarkup,
+                    'hospitalMarkup'     => $stock->hospitalMarkup,
+                    'priceToPatient'     => $stock->priceToPatient,
+                    'bankCharges'     => $stock->bankCharges,
+                    'subTotal'       => $subtotal,
+                    // 'expiry_date'    => $stock->expiryDate,
+                ]);
+
+                // Decrease stock (atomic)
+                $stock->decrement('quantityReceived', $itemData['quantity']);
+                // Optional: if quantity_received reaches 0 → mark as depleted / soft delete
+
+                $totalAmount += $subtotal;
+            }
+
+            // 4. Update transaction total
+            $transaction->update(['totalAmount' => $totalAmount]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Transaction completed successfully',
+                'transaction' => $transaction->load('transaction_items'), // or just id
+                'total_amount' => $totalAmount,
+            ], 201);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to process transaction',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+
+    public function updateStatus(Request $request, $transactionId)
+    {
+        // Find the transaction or fail
+        $transaction = Transactions::where('transactionId', $transactionId)->first();
+
+        // Optional: Authorization check (e.g., ensure user can update this transaction)
+        // $this->authorize('update', $transaction);
+
+        // Validate the request data
+        // $validated = $request->validate([
+        //     'status' => [
+        //         'required',
+        //         'string',
+        //         Rule::in(['PENDING', 'COMPLETED']), // Restrict to allowed statuses
+        //     ],
+        // ]);
+
+        // Update the status and other fields if needed
+        $transaction->status = "PAID";
+
+        // Optional: Set approved_by and approved_at if status is 'completed'
+        if ($transaction->status === 'PAID') {
+            $transaction->approvedBy = Auth::id(); // Assuming authenticated user
+            $transaction->approvedAt = now();
+        }
+
+        // Save the changes
+        $transaction->save();
+
+        // Return success response
+        return response()->json([
+            'message' => 'Transaction status updated successfully',
+            'data' => $transaction,
+        ], 200);
     }
     
 }

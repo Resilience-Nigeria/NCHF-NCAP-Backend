@@ -31,8 +31,8 @@ public function index()
         'user_hospital.hospital:hospitalId,acronym' // nested relationship: include id and hospitalName
     ])
     ->select('id', 'firstName', 'lastName', 'phoneNumber', 'email', 'role') // include foreign key for role relation
-    ->get()
-    ->makeHidden(['id']);
+    ->get();
+    // ->makeHidden(['id']);
 
     return response()->json($users);
 }
@@ -95,7 +95,7 @@ public function store(Request $request)
         'phoneNumber' => 'nullable|string|max:20',
         'email'       => 'nullable|email|max:255|unique:users,email',
         'password' => 'nullable|string|min:6',
-        'roleId'      => 'required|exists:roles,roleId',
+        'role'      => 'required|exists:roles,roleId',
     ]);
 
     // 2. Generate default password
@@ -111,25 +111,25 @@ public function store(Request $request)
         'phoneNumber' => $validatedData['phoneNumber'] ?? null,
         'email'       => $validatedData['email'] ?? null,
         'password'    => Hash::make($default_password),
-        'role'        => $validatedData['roleId'],
+        'role'        => $validatedData['role'],
     ]);
 
     Log::info('User created:', ['email' => $user->email]);
 
     // 4. Queue the welcome email
-    if ($user->email) {
-        try {
-            Mail::to($user->email)->send(new WelcomeEmail(
-                $user->firstName,
-                $user->lastName,
-                $user->email,
-                $default_password
-            ));
-            Log::info('Welcome email queued for ' . $user->email);
-        } catch (\Exception $e) {
-            Log::error('Failed to queue welcome email: ' . $e->getMessage());
-        }
-    }
+    // if ($user->email) {
+    //     try {
+    //         Mail::to($user->email)->send(new WelcomeEmail(
+    //             $user->firstName,
+    //             $user->lastName,
+    //             $user->email,
+    //             $default_password
+    //         ));
+    //         Log::info('Welcome email queued for ' . $user->email);
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to queue welcome email: ' . $e->getMessage());
+    //     }
+    // }
 
     // 5. Load role relationship
     $user->load('user_role');

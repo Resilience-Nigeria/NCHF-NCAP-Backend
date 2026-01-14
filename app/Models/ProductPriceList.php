@@ -11,7 +11,7 @@ class ProductPriceList extends Model
     public $table = 'product_price_list';
     protected $fillable = [
     'productId',
-    'price',
+    'priceToPatient',
     'discount',
     'discountType',
     'status',
@@ -20,14 +20,40 @@ class ProductPriceList extends Model
     'manufacturer',
     'distributor',
     'landedCost',
+    'hospitalMarkup',
     'distributorMarkup',
     'resilienceMarkup',
     'bankCharges',
     'status'
     ];
 
-   public function products()
+   public function product()
     {
         return $this->belongsTo(Product::class, 'productId', 'productId');
+    }
+
+    public function manufacturer()
+    {
+        return $this->belongsTo(Manufacturers::class, 'manufacturer', 'manufacturerId');
+    }
+
+    public function distributor()
+    {
+        return $this->belongsTo(Distributors::class, 'distributor', 'distributorId');
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Distributors::class, 'distributor', 'distributorId');
+    }
+
+    public function createdby()
+    {
+        return $this->belongsTo(User::class, 'createdBy', 'id');
+    }
+
+    public function updatedby()
+    {
+        return $this->belongsTo(User::class, 'updatedBy', 'id');
     }
 }

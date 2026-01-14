@@ -5,18 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Ministry extends Model
+class HospitalEscrowAccount extends Model
 {
     use HasFactory;
 
-    public $table = 'ministries';
+    public $table = 'hospital_escrow_accounts';
     protected $fillable = [
-        'ministryId',
-        'ministryName',
-        
+        'hospitalId',
+        'accountNumber',
+        'bankName',
+        'accountName',
         
     ];
-    protected $primaryKey = 'ministryId';
+    protected $primaryKey = 'escrowId';
 
     protected $hidden = ['created_at', 'updated_at'];
 }

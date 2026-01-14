@@ -14,11 +14,8 @@ return new class extends Migration
         Schema::create('product_price_list', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('productId')->nullable();
-            $table->string('price')->nullable();
-            $table->string('discount')->nullable();
-            $table->string('discountType')->nullable();
-
-
+            
+            
             $table->unsignedBigInteger('manufacturer')->nullable();
             $table->unsignedBigInteger('distributor')->nullable();
             $table->decimal('landedCost', 10, 2)->nullable();
@@ -26,6 +23,9 @@ return new class extends Migration
             $table->decimal('distributorMarkup', 10, 2)->nullable();
             $table->decimal('resilienceMarkup', 10, 2)->nullable();
             $table->decimal('bankCharges', 10, 2)->nullable();
+            $table->decimal('priceToPatient', 10, 2)->nullable();
+            $table->decimal('discount', 10, 2)->nullable();
+            $table->string('discountType')->nullable();
 
             $table->unsignedBigInteger('createdBy')->nullable();
             $table->unsignedBigInteger('updatedBy')->nullable();

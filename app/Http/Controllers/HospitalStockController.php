@@ -3,26 +3,28 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Stock;
+use App\Models\HospitalStock;
 use App\Models\Products;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class StockController extends Controller
+class HospitalStockController extends Controller
 {
      public function index()
     {
-        $stocks = Stock::with('product', 'lga_info')->get();
+        $stocks = HospitalStock::with('product', 'lga_info')->get();
         return response()->json($stocks);
        
     }
 
 
-     public function availableStock()
+     public function hospitalStocks()
     {
         $user = auth()->user();
-        $stocks = Stock::with('product', 'lga_info')
-        ->where('lgaId', $user->staff->lga)
+        // $hospitalId = $user->staff->hospitalId;
+        $hospitalId = 1;
+        $stocks = HospitalStock::with('requisition_item.warehouse_stock.product_pricelist.product', 'requisition_item.warehouse_stock.product_pricelist.manufacturer', 'requisition_item.warehouse_stock.product_pricelist.distributor', 'received_by')
+        ->where('hospitalId', $hospitalId)
         ->get();
         return response()->json($stocks);
        
@@ -36,7 +38,7 @@ class StockController extends Controller
         'quantityReceived' => 'required|integer|min:1',
     ]);
     $user = auth()->user();
-    $stock = Stock::create([
+    $stock = HospitalStock::create([
         'productId' => $validated['productId'],
         'quantityReceived' => $request->quantityReceived,
         'lgaId' => $user->staff->lga,
@@ -63,9 +65,9 @@ class StockController extends Controller
         'quantityReceived' => 'required|integer|min:1',
     ]);
 
-    $stock = Stock::where('stockId', $stockId)->first();
+    $stock = HospitalStock::where('stockId', $stockId)->first();
     if (!$stock) {
-        return response()->json(['message' => 'Stock type not found'], 404);
+        return response()->json(['message' => 'HospitalStock type not found'], 404);
     }
 
     $stock->update($validated);
@@ -84,19 +86,19 @@ class StockController extends Controller
 
     public function destroy($stockId)
     {
-        $stock = Stock::where('stockId', $stockId)->first();
+        $stock = HospitalStock::where('stockId', $stockId)->first();
         if (!$stock) {
-            return response()->json(['message' => 'Stock type not found'], 404);
+            return response()->json(['message' => 'HospitalStock type not found'], 404);
         }
 
         $stock->delete();
-        return response()->json(['message' => 'Stock type deleted successfully'], 200);
+        return response()->json(['message' => 'HospitalStock type deleted successfully'], 200);
     }
     // public function show($stockId)
     // {
-    //     $stock = Stock::where('stockId', $stockId)->first();
+    //     $stock = HospitalStock::where('stockId', $stockId)->first();
     //     if (!$stock) {
-    //         return response()->json(['message' => 'Stock type not found'], 404);
+    //         return response()->json(['message' => 'HospitalStock type not found'], 404);
     //     }
     //     return response()->json($stock);
     // }

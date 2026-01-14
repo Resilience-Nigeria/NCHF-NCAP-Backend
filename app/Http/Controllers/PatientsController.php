@@ -18,6 +18,8 @@ use App\Models\Billing;
 use App\Models\PatientReferral;
 use App\Models\PatientReferralService;
 use App\Models\PatientTransfer;
+use App\Models\Hospital;
+use Illuminate\Support\Facades\Hash;
 
 use Illuminate\Support\Facades\Auth;
 
@@ -59,6 +61,89 @@ class PatientsController extends Controller
     }
 
 
+    public function ncapEnrolledPatients()
+    {
+        $patients = Patient::with('user', 'hospital', 'cancer', 'stateOfOrigin', 'stateOfResidence')
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        return response()->json($patients);
+    }
+
+
+    public function generateCustomID() {
+        // Generate 9 random digits
+        $numbers = substr(str_shuffle("0123456789"), 0, 9);
+
+        // Generate 1 random uppercase letter
+        $letter = chr(rand(65, 90)); // ASCII values for A-Z
+
+        // Combine them
+        return $numbers . $letter;
+    }
+
+    public function ncapPatientEnrolment(Request $request)
+{
+    $validated = $request->validate([
+        'firstName' => 'required|string',
+        'lastName' => 'required|string',
+        'otherNames' => 'nullable|string',
+        'phoneNumber' => 'required|string',
+        'email' => 'nullable|string',
+        'dateOfBirth' => 'nullable|string',
+        'gender' => 'nullable|string',
+        'stateOfOrigin' => 'nullable|integer',
+        'stateOfResidence' => 'nullable|integer',
+        'hospitalFileNumber' => 'nullable|string',
+        'cancerType' => 'nullable|integer',
+    ]);
+    $user = auth()->user();
+    $getHospital = Hospital::where('hospitalId', $user->staff->hospitalId)->first();
+
+
+    $uniqueID = $this->generateCustomID();
+
+    $default_password = "password";
+    $patient_user_account = User::create([
+        'firstName' => $validated['firstName'],
+        'lastName' => $validated['lastName'],
+        'otherNames' => $validated['otherNames'] ?? null,
+        'phoneNumber' => $validated['phoneNumber'],
+        'email' => $validated['email'] ?? null,
+        'role' => 1,
+        'password' => Hash::make($default_password),
+    ]);
+
+    $patient = Patient::create([
+        // 'hospitalId' => auth()->user()->hospitalId,
+        'hospitalId' => $user->staff->hospitalId, // Temporary hardcoded value; replace with actual hospital ID from authenticated user
+        'lastName' => $validated['lastName'],
+        'firstName' => $validated['firstName'],
+        'otherNames' => $validated['otherNames'] ?? null,
+        'phoneNumber' => $validated['phoneNumber'],
+        'requestedBy' => auth()->id(),
+        'status' => 'active',
+        'hospitalFileNumber' => $validated['hospitalFileNumber'] ?? null,
+        'email' => $validated['email'] ?? null,
+        'dateOfBirth' => $validated['dateOfBirth'] ?? null,
+        'gender' => $validated['gender'] ?? null,
+        'diseaseType' => $validated['cancerType'] ?? null,
+        // 'stateOfOrigin' => $validated['stateOfOrigin'] ?? null,
+        // 'stateOfResidence' => $validated['stateOfResidence'] ?? null,
+        'cancerType' => $validated['cancerType'] ?? null,
+        'patientType' => 'NCAP',
+        'stateOfOrigin' => $validated['stateOfOrigin'] ?? null,
+        'stateOfResidence' => $validated['stateOfResidence'] ?? null,
+        'patientId' => "NCAP-{$getHospital->acronym}-$uniqueID",
+        'userId' => $patient_user_account->id,
+        'chfId' => "NCCHF-{$hospital->acronym}-$uniqueID",
+    ]);
+
+ 
+
+    return response()->json(['message' => 'Patient submitted successfully', 'requisition' => $patient], 201);
+}
+
     // public function hospitalPatients(Request $request)
     // {
     //     $hospitalAdminId = Auth::id();
@@ -97,15 +182,15 @@ class PatientsController extends Controller
 
 public function hospitalPatients(Request $request)
 {
-    $hospitalAdminId = Auth::id();
+    $user = auth()->user();
 
-    $currentHospital = HospitalStaff::where('userId', $hospitalAdminId)->first();
+    // $currentHospital = HospitalStaff::where('userId', $hospitalAdminId)->first();
 
-    if (!$currentHospital) {
-        return response()->json(['message' => 'Hospital admin not found'], 404);
-    }
+    // if (!$currentHospital) {
+    //     return response()->json(['message' => 'Hospital admin not found'], 404);
+    // }
 
-    $hospitalId = $currentHospital->hospitalId;
+    // $hospitalId = $currentHospital->hospitalId;
 
     // Query parameters
     $search       = $request->query('query');
@@ -116,7 +201,7 @@ public function hospitalPatients(Request $request)
     $endDate      = $request->query('end_date');      // YYYY-MM-DD
     $perPage      = $request->query('per_page', 15);
 
-    $patients = Patient::where('hospital', $hospitalId)
+    $patients = Patient::where('hospitalId', $user->staff->hospitalId)
         ->whereHas('user', function ($u) {
             $u->where('role', 1); // Always enforce patient role
         })

@@ -32,10 +32,17 @@ class ProductController extends Controller
 
 public function productPriceList()
     {
-        $product = ProductPriceList::with('products')->get();
+        $product = ProductPriceList::with('product', 'manufacturer', 'supplier', 'createdby', 'updatedby')->get();
         return response()->json($product);
     }
 
+    public function pricedProducts()
+    {
+        $product = ProductPriceList::with('product', 'manufacturer', 'distributor', 'supplier', 'createdby', 'updatedby')
+        ->where('status', 'active')
+        ->get();
+        return response()->json($product);
+    }
 
       public function productTypes()
     {
@@ -100,6 +107,43 @@ public function productPriceList()
             'error' => 'Product not found',
         ]);
     }
+    }
+
+
+    // Pricelist Methods
+    public function storeProductPriceList(Request $request)
+    {
+        // Validate the request data
+        $validatedData = $request->validate([
+        'productId' => 'required|integer|exists:products,productId',
+        'manufacturerId' => 'required|integer|exists:manufacturers,manufacturerId',
+        'supplierId' => 'nullable|integer|exists:distributors,distributorId',
+        'landedCost' => 'required|numeric',
+        'hospitalMarkup' => 'required|numeric',
+        'resilienceMarkup' => 'required|numeric',
+        'bankCharges' => 'nullable|numeric',
+        'priceToPatient' => 'required|numeric',
+    ]);
+
+        // Create a new user with the data (ensure that the fields are mass assignable in the model)
+        $productPriceList = ProductPriceList::create([
+            'productId' => $validatedData['productId'],
+            'manufacturer' => $validatedData['manufacturerId'],
+            'distributor' => $validatedData['supplierId'],
+            'landedCost' => $validatedData['landedCost'],
+            'distributorMarkup' => $validatedData['hospitalMarkup'],
+            'resilienceMarkup' => $validatedData['resilienceMarkup'],
+            'hospitalMarkup' => $validatedData['hospitalMarkup'],
+            'bankCharges' => $validatedData['bankCharges'] ?? 0,
+            'priceToPatient' => $validatedData['priceToPatient'],
+            'createdBy' => Auth::id(),
+            'status' => 'active',
+        ]);
+
+        return response()->json([
+            'message' => 'Product Price List created successfully',
+            'data' => $productPriceList,
+        ], 201); // HTTP status code 201: Created
     }
 
 }

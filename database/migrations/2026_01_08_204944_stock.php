@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-      Schema::create('stock', function (Blueprint $table) {
+      Schema::create('hospital_stocks', function (Blueprint $table) {
             $table->id('stockId');
             $table->string('batchNumber')->nullable();
             $table->unsignedBigInteger('productId')->nullable();
@@ -20,12 +20,22 @@ return new class extends Migration
             $table->string('quantityTransferred')->nullable();
             $table->string('quantityDamaged')->nullable();
             $table->string('expiryDate')->nullable();
+
+            $table->decimal('landedCost', 10, 2)->nullable();
+            $table->decimal('hospitalMarkup', 10, 2)->nullable();
+            $table->decimal('distributorMarkup', 10, 2)->nullable();
+            $table->decimal('resilienceMarkup', 10, 2)->nullable();
+            $table->decimal('bankCharges', 10, 2)->nullable();
+            $table->decimal('priceToPatient', 10, 2)->nullable();
+
+            // $table->unsignedBigInteger('priceListId')->nullable();
             $table->unsignedBigInteger('hospitalId')->nullable();
             $table->unsignedBigInteger('receivedBy')->nullable();
            
             $table->foreign('hospitalId')->references('hospitalId')->on('hospitals')->onDelete('cascade');
+            // $table->foreign('priceListId')->references('id')->on('product_price_list')->onDelete('cascade');
             $table->foreign('receivedBy')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('productId')->references('productId')->on('products')->onDelete('cascade');
+            $table->foreign('productId')->references('productId')->on('requisition_items')->onDelete('cascade');
             $table->timestamps();
         });
     }

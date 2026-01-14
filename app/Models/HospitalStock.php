@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Stock extends Model
+class HospitalStock extends Model
 {
     use HasFactory;
 
-    public $table = 'stock';
+    public $table = 'hospital_stocks';
     protected $fillable = [
         'stockId',
         'productId',
@@ -21,22 +21,25 @@ class Stock extends Model
         'quantityExpired',
         'quantityDamaged',
         'expiryDate',
-        'lgaId',
+        'hospitalId',
         'receivedBy',
         'status',
         'isActive',
+        'landedCost',
+        'resilienceMarkup',
+        'distributorMarkup',
+        'hospitalMarkup',
+        'bankCharges',
+        'priceToPatient',
     ];
     protected $primaryKey = 'stockId';
 
-    public function product()
+    public function requisition_item()
     {
-        return $this->belongsTo(Products::class, 'productId', 'productId');
+        return $this->belongsTo(RequisitionItem::class, 'productId', 'productId');
     }
 
-    public function lga_info()
-    {
-        return $this->belongsTo(Lgas::class, 'lgaId', 'lgaId');
-    }
+ 
 
     public function received_by()
     {

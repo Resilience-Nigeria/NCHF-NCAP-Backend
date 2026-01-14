@@ -87,5 +87,9 @@ public function application_status()
         return $this->belongsTo(HospitalStaff::class, 'id', 'userId');
     }
 
-}// Safe access
-        // 'lga' => $user->staff && $user->staff->lga ? $user->staff->lga_info->lgaName ?? '' : null, // Safe access
+    public function staff()
+    {
+        return $this->hasOne(HospitalStaff::class, 'userId', 'id');
+    }
+
+}

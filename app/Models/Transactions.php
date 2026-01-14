@@ -12,16 +12,21 @@ class Transactions extends Model
     public $table = 'transactions';
     protected $fillable = [
         'transactionId',
+        'transactionNumber',
+        'transactionType',
+        'userId',
+        'totalAmount',
         'productId',
-        'soldBy',
+        'createdBy',
         'paymentMethod',
-        'cost',
-        'quantitySold',
-        'lga',
-        'beneficiary',
-        'status'
+        'totalAmount',
+        'hospitalId',
+        'status',
+        'approvedBy',
+        'approvedAt',
+        'patientId',
     ];
-    protected $primaryKey = 'id';
+    protected $primaryKey = 'transactionId';
 
     public function products()
     {
@@ -30,21 +35,33 @@ class Transactions extends Model
 
     public function stock()
     {
-        return $this->belongsTo(Stock::class, 'stockId', 'stockId');
+        return $this->belongsTo(HospitalStock::class, 'stockId', 'stockId');
     } 
 
-    public function beneficiary_info()
+    public function hospital()
     {
-        return $this->belongsTo(Beneficiary::class, 'beneficiary', 'beneficiaryId');
+        return $this->belongsTo(Hospital::class, 'hospitalId', 'hospitalId');
     }
 
-    public function transaction_products()
+    public function transaction_items()
     {
-        return $this->hasMany(TransactionProducts::class, 'transactionId', 'transactionId');
+        return $this->hasMany(TransactionItems::class, 'transactionId', 'transactionId');
     }
 
-    public function seller()
+    public function createdBy()
     {
-        return $this->belongsTo(User::class, 'soldBy', 'id');
+        return $this->belongsTo(User::class, 'createdBy', 'id');
     }
+
+       public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approvedBy', 'id');
+    }
+    
+    public function patient_details()
+    {
+        return $this->belongsTo(Patient::class, 'patientId', 'patientId');
+    }
+
+
 }

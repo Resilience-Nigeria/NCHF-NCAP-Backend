@@ -4,13 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+// use Illuminate\Database\Eloquent\SoftDeletes;
 class Patient extends Model
 {
     use HasFactory;
-    use SoftDeletes;
+    // use SoftDeletes;
     public $table = 'patients';
-    protected $primaryKey = 'patientId';
+    protected $primaryKey = 'id';
     protected $fillable = [
     'firstName', 
     'lastName', 
@@ -42,9 +42,14 @@ class Patient extends Model
     'hospital',
     'stateOfOrigin',
     'stateOfResidence',
-    'doctorId'
+    'doctorId', 
+    'phoneNumber', 
+    'patientId',
+    'hospitalId',
+    'email',
+    'diseaseType'
 ];
-    protected $dates = ['deleted_at'];
+    // protected $dates = ['deleted_at'];
 
 
     public function doctor()
@@ -59,7 +64,7 @@ class Patient extends Model
 
     public function hospital()
     {
-        return $this->belongsTo(Hospital::class, 'hospital', 'hospitalId'); 
+        return $this->belongsTo(Hospital::class, 'hospitalId', 'hospitalId'); 
     }
 
 
@@ -68,9 +73,14 @@ class Patient extends Model
         return $this->belongsTo(State::class, 'stateOfOrigin', 'stateId'); 
     }
 
+     public function stateOfResidence()
+    {
+        return $this->belongsTo(State::class, 'stateOfResidence', 'stateId'); 
+    }
+
     public function cancer()
     {
-        return $this->belongsTo(Cancer::class, 'cancer', 'cancerId'); 
+        return $this->belongsTo(Cancer::class, 'diseaseType', 'cancerId'); 
     }
 
     public function user(){

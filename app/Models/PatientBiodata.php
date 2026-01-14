@@ -10,12 +10,15 @@ class PatientBiodata extends Model
     use HasFactory;
     public $table = 'patients';
     protected $fillable = [
+         'firstName', 
+    'lastName', 
+    'otherNames', 
         'patientId',
         'NIN',
         'userId',
         'chfId',
         'hospitalFileNumber',
-        'hospital',
+        'hospitalId',
         'stateOfOrigin',
         'lgaOfOrigin',
         'stateOfResidence',
@@ -34,12 +37,14 @@ class PatientBiodata extends Model
         'nextOfKinRelationship',
         'nextOfKinOccupation',
         'nextOfKinGender',
-        'hmo',
-        'cancer',
+        'hmoId',
+        'diseaseType',
         'doctor',
         'status',
+        'hospitalReceivingCare2',
+        'patientType'
     ];
-    protected $primaryKey = 'patientId';
+    protected $primaryKey = 'id';
 
    public function hospital(){
         return $this->belongsTo(Hospital::class, 'hospital', 'hospitalId');

@@ -34,7 +34,7 @@ return new class extends Migration
 
             $table->foreign('patientId')->references('patientId')->on('patients');
             $table->foreign('billedBy')->references('id')->on('users');
-            $table->foreign('stockId')->references('stockId')->on('stock');
+            $table->foreign('stockId')->references('stockId')->on('hospital_stocks');
             $table->foreign('productId')->references('productId')->on('products');
             $table->foreign('serviceId')->references('serviceId')->on('services');
             $table->foreign('hospitalId')->references('hospitalId')->on('hospitals');

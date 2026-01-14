@@ -12,7 +12,7 @@ class HospitalController extends Controller
     $search = $request->query('search');
 
     // Start with query builder (not paginate yet)
-    $query = Hospital::with('hospital_location')->orderBy('hospitalId', 'desc');
+    $query = Hospital::with('hospital_location', 'contact_person')->orderBy('hospitalId', 'desc');
 
     // Apply search filter if provided
     if ($search) {
@@ -37,11 +37,12 @@ class HospitalController extends Controller
             'acronym' => 'required|string|max:255',
             'hospitalName' => 'required|string|max:255',
             'location' => 'nullable|max:255',
-            // 'contactPerson' => 'nullable|max:255',
+            'contactPersonId' => 'nullable|max:255',
 
         ]);
         $validated['status'] = 'active';
-        $validated['location'] = $request->locationId;
+        $validated['location'] = $request->stateId;
+        $validated['contactPerson'] = $request->contactPersonId;
         $hospitals = Hospital::create($validated);
         $hospitals->load(['hospital_location']);
         return response()->json([

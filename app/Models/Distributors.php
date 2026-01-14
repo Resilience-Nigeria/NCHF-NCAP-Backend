@@ -20,4 +20,8 @@ class Distributors extends Model
     {
         return $this->hasMany(DistributorsMap::class, 'distributorId', 'distributorId');
     }
+
+    public function manufacturers(){
+        return $this->hasMany(ManufacturerDistributor::class, 'distributor', 'distributorId');
+    }
 }
