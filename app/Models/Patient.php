@@ -54,7 +54,7 @@ class Patient extends Model
 
     public function doctor()
     {
-        return $this->hasOne(User::class, 'id', 'doctor'); 
+        return $this->hasOne(Doctors::class, 'doctorId', 'doctorId'); 
     }
 
     public function hmo()
@@ -115,4 +115,12 @@ class Patient extends Model
     public function nicrat_assessment(){
         return $this->hasOne(NICRATAssessment::class, 'patientUserId', 'userId')->latest('assessmentId');
     }
+
+public function latestStatus()
+{
+    return $this->hasOne(ApplicationReview::class, 'patientUserId', 'userId')
+                ->latestOfMany('created_at');
+}
+
+
 }

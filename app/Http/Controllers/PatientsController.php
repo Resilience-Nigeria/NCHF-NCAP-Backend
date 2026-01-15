@@ -64,6 +64,7 @@ class PatientsController extends Controller
     public function ncapEnrolledPatients()
     {
         $patients = Patient::with('user', 'hospital', 'cancer', 'stateOfOrigin', 'stateOfResidence')
+        ->where('patientType', 'NCAP')
         ->orderBy('created_at', 'desc')
         ->get();
 
@@ -184,14 +185,6 @@ public function hospitalPatients(Request $request)
 {
     $user = auth()->user();
 
-    // $currentHospital = HospitalStaff::where('userId', $hospitalAdminId)->first();
-
-    // if (!$currentHospital) {
-    //     return response()->json(['message' => 'Hospital admin not found'], 404);
-    // }
-
-    // $hospitalId = $currentHospital->hospitalId;
-
     // Query parameters
     $search       = $request->query('query');
     $status       = $request->query('status');        // statusId
@@ -202,14 +195,13 @@ public function hospitalPatients(Request $request)
     $perPage      = $request->query('per_page', 15);
 
     $patients = Patient::where('hospitalId', $user->staff->hospitalId)
-        ->whereHas('user', function ($u) {
-            $u->where('role', 1); // Always enforce patient role
-        })
-        ->when($search, function ($query) use ($search) {
-            $like = "%" . strtolower($search) . "%";
+    ->where('patientType', 'NCCHF')
+    ->whereHas('user', fn ($u) => $u->where('role', 1))
+    ->when($search, function ($query) use ($search) {
+        $like = "%" . strtolower($search) . "%";
 
-            // Search in user fields (case-insensitive)
-            $query->whereHas('user', function ($u) use ($like) {
+        $query->where(function ($q) use ($like) {
+            $q->whereHas('user', function ($u) use ($like) {
                 $u->whereRaw('LOWER(phoneNumber) LIKE ?', [$like])
                   ->orWhereRaw('LOWER(email) LIKE ?', [$like])
                   ->orWhereRaw(
@@ -217,44 +209,21 @@ public function hospitalPatients(Request $request)
                       [$like]
                   );
             })
-            // Search in patient fields
             ->orWhereRaw('LOWER(chfId) LIKE ?', [$like]);
-        })
-        ->when($status, function ($query) use ($status) {
-            // Filter by current/latest status
-            $query->whereHas('status', function ($q) use ($status) {
-                $q->where('status', $status)
-                  ->orderBy('created_at', 'desc'); // latest status
-            });
-        })
-        ->when($doctorId, function ($query) use ($doctorId) {
-            $query->whereHas('doctor', function ($q) use ($doctorId) {
-                $q->where('doctor', $doctorId);
-            });
-        })
-        ->when($cancerType, function ($query) use ($cancerType) {
-            $query->whereHas('cancer', function ($q) use ($cancerType) {
-                $q->whereRaw('LOWER(cancerName) LIKE ?', ["%" . strtolower($cancerType) . "%"]);
-            });
-        })
-        ->when($startDate, function ($query) use ($startDate) {
-            $query->whereDate('created_at', '>=', $startDate);
-        })
-        ->when($endDate, function ($query) use ($endDate) {
-            $query->whereDate('created_at', '<=', $endDate);
-        })
-        ->with([
-            'doctor',
-            'user',
-            'cancer',
-            'status' => function ($q) {
-                // Always load the latest status
-                $q->latest('created_at')->limit(1);
-            },
-            'status.status_details'
-        ])
-        ->orderBy('updated_at', 'desc')
-        ->paginate($perPage);
+        });
+    })
+    ->when($status, fn ($q) => $q->whereHas('latestStatus', fn ($s) => $s->where('status', $status)))
+    ->when($doctorId, fn ($q) => $q->whereHas('doctor', fn ($d) => $d->where('doctor', $doctorId)))
+    ->when($cancerType, fn ($q) => $q->whereHas('cancer', fn ($c) =>
+        $c->whereRaw('LOWER(cancerName) LIKE ?', ["%".strtolower($cancerType)."%"])
+    ))
+    ->when($startDate, fn ($q) => $q->whereDate('created_at', '>=', $startDate))
+    ->when($endDate, fn ($q) => $q->whereDate('created_at', '<=', $endDate))
+    // ->with(['doctor', 'user', 'cancer', 'latestStatus.status_details'])
+    ->with(['user', 'doctor', 'cancer', 'latestStatus.status_details'])
+    ->orderByDesc('updated_at')
+    ->paginate($perPage);
+
 
     return response()->json($patients);
 }
