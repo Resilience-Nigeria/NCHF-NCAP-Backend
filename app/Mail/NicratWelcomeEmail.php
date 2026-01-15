@@ -15,7 +15,7 @@ class NicratWelcomeEmail extends Mailable
      *
      * @return void
      */
-    public function __construct($email, $firstName, $lastName, $roleName, $defaultPassword)
+    public function __construct($email, $firstName, $lastName, $defaultPassword, $roleName,)
     {
         $this->email = $email;
         $this->firstName = $firstName;
@@ -40,9 +40,9 @@ class NicratWelcomeEmail extends Mailable
                         'firstName' => $this->firstName,
                         'lastName' => $this->lastName,
                         
+                        'defaultPassword' => $this->defaultPassword,
                         'roleName' => $this->roleName,
                         
-                        'defaultPassword' => $this->defaultPassword,
                         'action_url' => "https://nchf.resilience.ng/login",
                         'login_url' => "https://nchf.resilience.ng/login",
                         

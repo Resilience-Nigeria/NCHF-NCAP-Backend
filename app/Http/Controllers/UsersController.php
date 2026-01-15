@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Mail\WelcomeEmail;
+use App\Mail\NicratWelcomeEmail;
+use App\Mail\CHAIWelcomeEmail;
 use App\Models\ApplicationReview;
 use App\Models\Languages;
 use Illuminate\Support\Facades\Mail;
@@ -28,7 +30,7 @@ public function index()
 {
     $users = User::with([
         'user_role:roleId,roleName', // include foreign key id
-        'user_hospital.hospital:hospitalId,acronym' // nested relationship: include id and hospitalName
+        'staff.hospital:hospitalId,hospitalName,acronym' // nested relationship: include id and hospitalName
     ])
     ->select('id', 'firstName', 'lastName', 'phoneNumber', 'email', 'role') // include foreign key for role relation
     ->get();
@@ -117,19 +119,20 @@ public function store(Request $request)
     Log::info('User created:', ['email' => $user->email]);
 
     // 4. Queue the welcome email
-    // if ($user->email) {
-    //     try {
-    //         Mail::to($user->email)->send(new WelcomeEmail(
-    //             $user->firstName,
-    //             $user->lastName,
-    //             $user->email,
-    //             $default_password
-    //         ));
-    //         Log::info('Welcome email queued for ' . $user->email);
-    //     } catch (\Exception $e) {
-    //         Log::error('Failed to queue welcome email: ' . $e->getMessage());
-    //     }
-    // }
+    if ($user->email) {
+        try {
+            Mail::to($user->email)->send(new CHAIWelcomeEmail(
+                $user->firstName,
+                $user->lastName,
+                $user->email,
+                $default_password,
+                $user->user_role->roleName
+            ));
+            Log::info('Welcome email queued for ' . $user->email);
+        } catch (\Exception $e) {
+            Log::error('Failed to queue welcome email: ' . $e->getMessage());
+        }
+    }
 
     // 5. Load role relationship
     $user->load('user_role');
