@@ -136,7 +136,7 @@ class PatientsController extends Controller
         'stateOfResidence' => $validated['stateOfResidence'] ?? null,
         'patientId' => "NCAP-{$getHospital->acronym}-$uniqueID",
         'userId' => $patient_user_account->id,
-        'chfId' => "NCCHF-{$hospital->acronym}-$uniqueID",
+        'chfId' => "NCCHF-{$getHospital->acronym}-$uniqueID",
     ]);
 
  
