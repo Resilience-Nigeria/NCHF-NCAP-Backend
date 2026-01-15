@@ -123,7 +123,7 @@ Route::middleware(['auth.jwt'])->group(function () {
     | ADMIN & PHARMACIST
     |--------------------------------------------------------------------------
     */
-    Route::middleware('role:SUPER_ADMIN,PHARMACIST')->group(function () {
+    Route::middleware('role:SUPER_ADMIN,PHARMACIST,CHAI')->group(function () {
         Route::get('/stock', [HospitalStockController::class, 'index']);
         Route::post('/stock', [HospitalStockController::class, 'store']);
 
