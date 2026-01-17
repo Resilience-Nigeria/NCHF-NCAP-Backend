@@ -123,4 +123,10 @@ public function latestStatus()
 }
 
 
+public function prescriptions()
+    {
+        return $this->hasMany(Prescription::class, 'patientId', 'id');
+    }
+
+
 }

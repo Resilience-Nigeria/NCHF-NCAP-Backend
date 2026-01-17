@@ -19,7 +19,10 @@ use App\Models\PatientReferral;
 use App\Models\PatientReferralService;
 use App\Models\PatientTransfer;
 use App\Models\Hospital;
+use App\Models\Transactions;
+use App\Models\Prescription;
 use Illuminate\Support\Facades\Hash;
+use App\Http\Resources\PrescriptionHistoryResource;
 
 use Illuminate\Support\Facades\Auth;
 
@@ -145,6 +148,95 @@ class PatientsController extends Controller
     return response()->json(['message' => 'Patient submitted successfully', 'requisition' => $patient], 201);
 }
 
+
+public function showNcapPatient(Request $request)
+    {
+        // Optional: add policy/authorization check
+        // $this->authorize('view', $patient);
+
+        // if (!$patient->is_ncap) {
+        //     return response()->json(['message' => 'Not an NCAP patient'], 404);
+        // }
+        // return "HH" .$request->patient;
+
+         return $patient = Patient::where('id', $request->patient)->first();
+
+        return response()->json([
+            'id'                  => $patient->patientId,
+            'hospitalFileNumber'  => $patient->hospitalFileNumber,
+            'firstName'           => $patient->firstName,
+            'lastName'            => $patient->lastName,
+            'otherNames'          => $patient->otherNames,
+            'gender'              => $patient->gender,
+            'cancerStage'         => $patient->cancerStage ?? null,
+            'hospital'            => $patient->hospital ? [
+                'hospitalId'   => $patient->hospital->hospitalId,
+                'hospitalName' => $patient->hospital->hospitalName,
+            ] : null,
+            // ... add more fields you need in frontend
+        ]);
+    }
+
+    /**
+     * Get prescription/return history for patient
+     */
+public function prescriptionHistory(Request $request)
+{
+
+    $perPage = $request->query('per_page', 15);
+$getPatient = Patient::where('id', $request->patient)->first();
+$transactions = Transactions::where('patientId', $getPatient->patientId)
+        ->where('status', 'PAID')           // only successful purchases count as "returns"
+        ->with(['transaction_items.products', 'created_by', 'hospital'])
+        ->latest('updated_at')
+        // ->get();
+        ->paginate($perPage);
+
+    // Transform each transaction into the exact format your frontend expects
+    $formatted = $transactions->map(function ($transaction) {
+        return [
+            'id'              => $transaction->transactionId,
+            'transactionDate' => $transaction->created_at?->toIso8601String() 
+                               ?? $transaction->created_at?->toIso8601String(),
+            'invoiceNumber'   => $transaction->invoice_number ?? null,
+            'hospitalName' => $transaction->hospital->acronym,
+            'totalAmount'     => (float) $transaction->totalAmount,
+            'status'          => $transaction->status,
+            'paymentMethod'   => $transaction->paymentMethod ?? null,
+            'processedBy'     => $transaction->created_by 
+                ? $transaction->created_by->firstName . ' ' . $transaction->created_by->lastName 
+                : null,
+            'items'           => $transaction->transaction_items->map(function ($item) {
+                return [
+                    'name'      => $item->products?->productName ?? $item->product?->name ?? 'Unknown',
+                    'quantity'  => (int) $item->quantity,
+                    'unitPrice' => (float) ($item->priceToPatient ?? $item->unitPrice ?? 0),
+                    'subtotal'  => (float) $item->subtotal,
+                ];
+            })->toArray(),
+            'totalItems'      => $transaction->transaction_items->count(),
+        ];
+    });
+
+    // Return Laravel's paginated response structure (very frontend-friendly)
+    return response()->json([
+        'data'  => $formatted,
+        'links' => [
+            'first'  => $transactions->url(1),
+            'last'   => $transactions->url($transactions->lastPage()),
+            'prev'   => $transactions->previousPageUrl(),
+            'next'   => $transactions->nextPageUrl(),
+        ],
+        'meta'  => [
+            'current_page' => $transactions->currentPage(),
+            'from'         => $transactions->firstItem(),
+            'last_page'    => $transactions->lastPage(),
+            'per_page'     => $transactions->perPage(),
+            'to'           => $transactions->lastItem(),
+            'total'        => $transactions->total(),
+        ]
+    ]);
+}
     // public function hospitalPatients(Request $request)
     // {
     //     $hospitalAdminId = Auth::id();

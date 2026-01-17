@@ -165,6 +165,9 @@ Route::middleware(['auth.jwt'])->group(function () {
         Route::post('patients/ncap', [PatientsController::class, 'ncapPatientEnrolment']);
         Route::get('patient/search', [TransactionsController::class, 'searchPatient']);
         
+        Route::get('/patient/{patient}/prescription-history', [PatientsController::class, 'prescriptionHistory']);
+        Route::get('/patient/ncap/{patient}', [PatientsController::class, 'showNcapPatient']);
+
         Route::get('/hospital/escrow-account', [TransactionsController::class, 'getEscrowAccounts']);
 
         Route::get('transactions', [TransactionsController::class, 'index']);

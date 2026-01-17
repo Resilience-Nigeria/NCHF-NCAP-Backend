@@ -48,7 +48,7 @@ class Transactions extends Model
         return $this->hasMany(TransactionItems::class, 'transactionId', 'transactionId');
     }
 
-    public function createdBy()
+    public function created_by()
     {
         return $this->belongsTo(User::class, 'createdBy', 'id');
     }
