@@ -471,7 +471,7 @@
                                     Email: {{$email}}<br>
                                     Password: {{$defaultPassword}}<br>
                                     Role: CHAI/Partner
-                                    
+                                    <a href="https://ncchf.resilience.ng/">Click Here To Login</a>
                                   </td>
                                 </tr>
                               </table>
