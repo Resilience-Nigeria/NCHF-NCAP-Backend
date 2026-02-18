@@ -183,7 +183,7 @@ Route::middleware(['auth.jwt'])->group(function () {
     | ADMIN ONLY – PARTNERS / SUPPLIERS
     |--------------------------------------------------------------------------
     */
-    Route::middleware('role:PATIENT,SUPER_ADMIN')->group(function () {
+    Route::middleware('role:PATIENT,SUPER_ADMIN,CHAI')->group(function () {
         Route::post('/patient/biodata', [PatientBiodataController::class, 'store']);
         Route::get('/patients/biodata/{phoneNumber}', [PatientBiodataController::class, 'retrievePatient']);
         Route::get('patient/{phoneNumber}/status', [PatientBiodataController::class, 'currentStatus']);
