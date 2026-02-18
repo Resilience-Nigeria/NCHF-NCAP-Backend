@@ -159,7 +159,17 @@ public function showNcapPatient(Request $request)
         // }
         // return "HH" .$request->patient;
 
-         return $patient = Patient::where('id', $request->patient)->first();
+         return $patient = Patient::when(is_numeric($request->patient), function ($query) use ($request) {
+        $query->where('id', $request->patient);
+    })
+    ->orWhere('patientId', $request->patient)
+    ->first();
+if (!$patient) {
+    return response()->json([
+        'message' => 'Patient not found'
+    ], 404);
+}
+
 
         return response()->json([
             'id'                  => $patient->patientId,
@@ -184,7 +194,17 @@ public function prescriptionHistory(Request $request)
 {
 
     $perPage = $request->query('per_page', 15);
-$getPatient = Patient::where('id', $request->patient)->first();
+$getPatient = Patient::when(is_numeric($request->patient), function ($query) use ($request) {
+        $query->where('id', $request->patient);
+    })
+    ->orWhere('patientId', $request->patient)
+    ->first();
+if (!$getPatient) {
+    return response()->json([
+        'message' => 'Patient not found'
+    ], 404);
+}
+
 $transactions = Transactions::where('patientId', $getPatient->patientId)
         ->where('status', 'PAID')           // only successful purchases count as "returns"
         ->with(['transaction_items.products', 'created_by', 'hospital'])

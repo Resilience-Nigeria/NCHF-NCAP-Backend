@@ -24,7 +24,12 @@ class ProductPriceList extends Model
     'distributorMarkup',
     'resilienceMarkup',
     'bankCharges',
-    'status'
+    'status',
+    'sku',
+    'packSize',
+    'brand',
+    'dosageForm',
+    'strength'
     ];
 
    public function product()
