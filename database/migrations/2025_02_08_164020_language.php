@@ -11,20 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Schema::create('languages', function (Blueprint $table) {
-        //     $table->id('languageId');
-        //     $table->string('languageName')->nullable();
+        Schema::create('languages', function (Blueprint $table) {
+            $table->id('languageId');
+            $table->string('languageName')->nullable();
             
-        //     $table->timestamps();
-        //     $table->softDeletes();
-        // }); 
+            $table->timestamps();
+            $table->softDeletes();
+        }); 
 
 
-        // Schema::table('users', function (Blueprint $table) {
-        //     $table->unsignedBigInteger('languageId')->nullable();
-        //     $table->foreign('languageId')->references('languageId')->on('languages')->onDelete('cascade');
+        Schema::table('users', function (Blueprint $table) {
+            $table->unsignedBigInteger('languageId')->nullable();
+            $table->foreign('languageId')->references('languageId')->on('languages')->onDelete('cascade');
             
-        // });
+        });
     }
 
     /**
