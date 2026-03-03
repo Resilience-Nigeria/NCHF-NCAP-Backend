@@ -123,7 +123,7 @@ Route::middleware(['auth.jwt'])->group(function () {
     | ADMIN & PHARMACIST
     |--------------------------------------------------------------------------
     */
-    Route::middleware('role:SUPER_ADMIN,PHARMACIST,CHAI,DOCTOR')->group(function () {
+    Route::middleware('role:SUPER_ADMIN,PHARMACIST,CHAI,DOCTOR,HOSPITAL_ADMIN')->group(function () {
         Route::get('/stock', [HospitalStockController::class, 'index']);
         Route::post('/stock', [HospitalStockController::class, 'store']);
 
@@ -183,7 +183,7 @@ Route::middleware(['auth.jwt'])->group(function () {
     | ADMIN ONLY – PARTNERS / SUPPLIERS
     |--------------------------------------------------------------------------
     */
-    Route::middleware('role:PATIENT,SUPER_ADMIN,CHAI,DOCTOR')->group(function () {
+    Route::middleware('role:PATIENT,SUPER_ADMIN,CHAI,DOCTOR,HOSPITAL_ADMIN')->group(function () {
         Route::post('/patient/biodata', [PatientBiodataController::class, 'store']);
         Route::get('/patients/biodata/{phoneNumber}', [PatientBiodataController::class, 'retrievePatient']);
         Route::get('patient/{phoneNumber}/status', [PatientBiodataController::class, 'currentStatus']);
